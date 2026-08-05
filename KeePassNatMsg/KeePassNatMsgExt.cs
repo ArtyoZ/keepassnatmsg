@@ -72,6 +72,7 @@ namespace KeePassNatMsg
         private static readonly Version KeePassXcVersion = new Version(2, 7, 0);
 
         private IListener _listener;
+        private EventHandler<GwmWindowEventArgs> _windowAddedHandler;
 
         public override string UpdateUrl
         {
@@ -206,6 +207,8 @@ namespace KeePassNatMsg
 
             pluginHost.MainWindow.FileClosingPre += MainWindow_FileClosingPre;
             pluginHost.MainWindow.FileOpened += MainWindow_FileOpened;
+            _windowAddedHandler = GlobalWindowManager_WindowAdded;
+            GlobalWindowManager.WindowAdded += _windowAddedHandler;
 
             try
             {
@@ -293,8 +296,25 @@ namespace KeePassNatMsg
 
         public override void Terminate()
         {
+            if (_windowAddedHandler != null)
+                GlobalWindowManager.WindowAdded -= _windowAddedHandler;
+
             if (_listener != null)
                 _listener.Stop();
+        }
+
+        private void GlobalWindowManager_WindowAdded(object sender, GwmWindowEventArgs e)
+        {
+            var form = e.Form as KeePass.Forms.PwEntryForm;
+            if (form != null)
+                form.Shown += EntryForm_Shown;
+        }
+
+        private void EntryForm_Shown(object sender, EventArgs e)
+        {
+            var form = sender as KeePass.Forms.PwEntryForm;
+            if (form != null)
+                new EntrySettingsTab(form);
         }
 
         internal void UpdateUI(PwGroup group)

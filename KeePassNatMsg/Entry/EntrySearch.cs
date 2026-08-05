@@ -403,7 +403,6 @@ namespace KeePassNatMsg.Entry
             var formAuthority = hostUri.Authority;
             var searchHost = hostUri.Host;
             var origSearchHost = hostUri.Host;
-            var searchAuthority = hostUri.Authority;
             var searchScheme = hostUri.Scheme;
 
             List<PwDatabase> listDatabases = new List<PwDatabase>();
@@ -435,24 +434,6 @@ namespace KeePassNatMsg.Entry
 
             foreach (PwDatabase db in listDatabases)
             {
-                if (strictHostAndPortMatching)
-                {
-                    if (configOpt.MatchSchemes)
-                    {
-                        parms.SearchString = string.Format("^{0}$|{1}://{0}/?", searchAuthority, searchScheme);
-                    }
-                    else
-                    {
-                        parms.SearchString = string.Format("^{0}$|/{0}/?", searchAuthority);
-                    }
-
-                    var strictEntries = new PwObjectList<PwEntry>();
-                    db.RootGroup.SearchEntries(parms, strictEntries);
-                    listResult.AddRange(strictEntries.Select(x => new PwEntryDatabase(x, db)));
-                    if (searchUrls) AddURLCandidates(db, listResult, parms.RespectEntrySearchingDisabled);
-                    continue;
-                }
-
                 searchHost = origSearchHost;
                 //get all possible entries for given host-name
                 while (listResult.Count == listCount && (origSearchHost == searchHost || searchHost.IndexOf(".") != -1))
@@ -483,7 +464,10 @@ namespace KeePassNatMsg.Entry
                 var title = e.Strings.ReadSafe(PwDefs.TitleField);
                 var entryUrl = e.Strings.ReadSafe(PwDefs.UrlField);
                 var c = _ext.GetEntryConfig(e);
-                var compareValue = strictHostAndPortMatching ? formAuthority : formHost;
+                var matchMode = c == null
+                    ? (strictHostAndPortMatching ? UrlMatchMode.Hostname : UrlMatchMode.Domain)
+                    : c.UrlMatchMode;
+                var compareValue = formAuthority;
                 if (c != null)
                 {
                     if (c.Allow.Contains(compareValue))
@@ -494,10 +478,10 @@ namespace KeePassNatMsg.Entry
                         return false;
                 }
 
-                if (IsValidUrl(entryUrl, compareValue, strictHostAndPortMatching))
+                if (UrlMatcher.IsMatch(entryUrl, hostUri, matchMode, configOpt.MatchSchemes))
                     return true;
 
-                if (IsValidUrl(title, compareValue, strictHostAndPortMatching))
+                if (UrlMatcher.IsMatch(title, hostUri, matchMode, configOpt.MatchSchemes))
                     return true;
 
                 if (searchUrls)
@@ -512,15 +496,15 @@ namespace KeePassNatMsg.Entry
                             return true;
                         }
 
-                        if (IsValidUrl(sfv, compareValue, strictHostAndPortMatching))
+                        if (UrlMatcher.IsMatch(sfv, hostUri, matchMode, configOpt.MatchSchemes))
                             return true;
                     }
                 }
 
-                if (strictHostAndPortMatching)
-                    return false;
+                if (string.IsNullOrEmpty(entryUrl))
+                    return formHost.Contains(title);
 
-                return formHost.Contains(title) || (!string.IsNullOrEmpty(entryUrl) && formHost.Contains(entryUrl));
+                return matchMode == UrlMatchMode.Domain && formHost.Contains(entryUrl);
             });
 
             var result = listResult.Where(e => filter(e.entry));
@@ -548,16 +532,6 @@ namespace KeePassNatMsg.Entry
                     && x.Key.ToLowerInvariant().Contains("regex"))) continue;
                 listResult.Add(new PwEntryDatabase(entry, db));
             }
-        }
-
-        private bool IsValidUrl(string url, string compareValue, bool strictHostAndPortMatching)
-        {
-            Uri uri;
-            return Uri.TryCreate(url, UriKind.Absolute, out uri)
-                && _allowedSchemes.Contains(uri.Scheme)
-                && (strictHostAndPortMatching
-                    ? string.Equals(compareValue, uri.Authority, StringComparison.InvariantCultureIgnoreCase)
-                    : compareValue.EndsWith(uri.Host, StringComparison.InvariantCultureIgnoreCase));
         }
 
         private static SearchParameters MakeSearchParameters(bool excludeExpired)
