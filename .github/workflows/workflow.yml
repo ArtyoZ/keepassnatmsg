@@ -15,7 +15,7 @@ jobs:
         uses: actions/checkout@v4
       - id: dlkp
         name: Download Keepass
-        uses: smorks/keepass-download-action@v0.0.5
+        uses: smorks/keepass-download-action@v0.0.6
       - name: Setup NuGet
         uses: NuGet/setup-nuget@v2
       - name: Add msbuild to PATH
