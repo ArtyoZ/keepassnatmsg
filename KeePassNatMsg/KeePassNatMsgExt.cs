@@ -569,9 +569,7 @@ namespace KeePassNatMsg
 
         public static string GetVersion()
         {
-            var c = new ConfigOpt(HostInstance.CustomConfig);
-            var verOvr = c.OverrideKeePassXcVersion;
-            return string.IsNullOrWhiteSpace(verOvr) ? KeePassXcVersion.ToString() : verOvr;
+            return KeePassXcVersion.ToString();
         }
 
         public void Dispose()
