@@ -63,9 +63,25 @@ namespace KeePassNatMsg.Protocol
             lock (_unlockLock)
             {
                 var config = new ConfigOpt(_host.CustomConfig);
-                if (!_host.Database.IsOpen && config.UnlockDatabaseRequest && KeePass.UI.GlobalWindowManager.WindowCount == 0 && triggerUnlock)
+                if (!_host.Database.IsOpen && config.UnlockDatabaseRequest && triggerUnlock)
                 {
-                    _host.MainWindow.Invoke(new System.Action(() => _host.MainWindow.OpenDatabase(_host.MainWindow.DocumentManager.ActiveDocument.LockedIoc, null, false)));
+                    _host.MainWindow.Invoke(new System.Action(() =>
+                {
+                    if (KeePass.UI.GlobalWindowManager.WindowCount == 0)
+                    {
+                        // No dialog open yet for this database — start a fresh one.
+                        _host.MainWindow.OpenDatabase(_host.MainWindow.DocumentManager.ActiveDocument.LockedIoc, null, false);
+                    }
+                    else
+                    {
+                        // A dialog (likely the master-key prompt from an earlier
+                        // triggerUnlock, or KeePass's own auto-lock prompt) may
+                        // already be open but hidden behind other windows.
+                        // Bring KeePass to the foreground so the user actually
+                        // sees it, instead of silently doing nothing.
+                        _host.MainWindow.Activate();
+                    }
+                }));
                 }
 
                 return _host.Database.IsOpen;
