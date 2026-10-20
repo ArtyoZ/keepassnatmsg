@@ -6,6 +6,7 @@ using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Windows.Forms;
 
 namespace KeePassNatMsg.Protocol
 {
@@ -79,7 +80,7 @@ namespace KeePassNatMsg.Protocol
                         // already be open but hidden behind other windows.
                         // Bring KeePass to the foreground so the user actually
                         // sees it, instead of silently doing nothing.
-                        _host.MainWindow.Activate();
+                        BringKeePassWindowToFront(_host.MainWindow);
                     }
                 }));
                 }
@@ -308,5 +309,22 @@ namespace KeePassNatMsg.Protocol
 
             return resp;
         }
+		
+		static void BringKeePassWindowToFront(Form f)
+		{
+			if (f == null || f.IsDisposed) return;
+
+			if (!f.Visible) f.Show();
+			if (f.WindowState == FormWindowState.Minimized)
+				f.WindowState = FormWindowState.Normal;
+
+			// TopMost-switching raises the window in Z-order on most window managers
+			bool wasTop = f.TopMost;
+			f.TopMost = true;
+			f.TopMost = wasTop;
+
+			f.BringToFront();
+			f.Activate();
+		}
     }
 }
